@@ -1,0 +1,34 @@
+buildscript {
+    ext.kotlin_version = "1.0.0"
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version",
+                  "com.github.jengelman.gradle.plugins:shadow:1.2.3"
+    }
+}
+
+apply plugin: "groovy"
+apply plugin: "com.github.johnrengelman.shadow"
+apply plugin: "kotlin"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-runtime:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
+    testCompile "junit:junit:4.12"
+}
+
+jar {
+    manifest {
+        attributes "Main-Class": "com.andrewberls.sstable.Main"
+    }
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+}
