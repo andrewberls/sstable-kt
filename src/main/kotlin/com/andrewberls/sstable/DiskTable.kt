@@ -65,6 +65,8 @@ class DiskTable(val raf: RandomAccessFile) {
         }
     }
 
+    private val index = buildIndex()
+
     internal fun buildIndex(): Map<String, Long> {
         raf.seek(0)
         val idx = HashMap<String, Long>()
@@ -80,17 +82,12 @@ class DiskTable(val raf: RandomAccessFile) {
         return idx
     }
 
-    private lateinit var index: Map<String, Long>
-    init {
-        this.index = buildIndex()
-    }
-
     fun get(k: String): ByteArray? {
         val offset = index.get(k)
         if (offset != null) {
             raf.seek(offset)
             val len = raf.readLong()
-            val v = ByteArray(Math.toIntExact(len))
+            val v = ByteArray(Math.toIntExact(len)) // TODO: fix format
             raf.read(v)
             return v
         } else {
