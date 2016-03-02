@@ -30,19 +30,19 @@ class DiskTableTest {
         raf.seek(0)
 
         // Header
-        assertEquals(59, raf.readLong()) // Index offset
+        assertEquals(47, raf.readLong()) // Index offset
 
         // KVs
         assertEquals("a", Utils.readLengthPrefixedString(raf))
-        assertEquals(4, raf.readLong()) // 1 length
+        assertEquals(4, raf.readInt()) // 1 length
         assertEquals(1, raf.readInt()) // 1 (byte hack)
 
         assertEquals("b", Utils.readLengthPrefixedString(raf))
-        assertEquals(4, raf.readLong()) // 2 length
+        assertEquals(4, raf.readInt()) // 2 length
         assertEquals(2, raf.readInt()) // 2 (byte hack)
 
         assertEquals("c", Utils.readLengthPrefixedString(raf))
-        assertEquals(4, raf.readLong()) // 3 length
+        assertEquals(4, raf.readInt()) // 3 length
         assertEquals(3, raf.readInt()) // 3 (byte hack)
 
         // Index
@@ -50,10 +50,10 @@ class DiskTableTest {
         assertEquals(13, raf.readLong())
 
         assertEquals("b", Utils.readLengthPrefixedString(raf))
-        assertEquals(30, raf.readLong())
+        assertEquals(26, raf.readLong())
 
         assertEquals("c", Utils.readLengthPrefixedString(raf))
-        assertEquals(47, raf.readLong())
+        assertEquals(39, raf.readLong())
 
         // Nothing else should be present
         assertEquals(raf.length(), raf.getFilePointer())
@@ -69,8 +69,8 @@ class DiskTableTest {
         val dt = DiskTable.build(kvs)
 
         val expected = hashMapOf(Pair("a", 13.toLong()),
-                                 Pair("b", 30.toLong()),
-                                 Pair("c", 47.toLong()))
+                                 Pair("b", 26.toLong()),
+                                 Pair("c", 39.toLong()))
         val actual = dt.buildIndex()
         assertEquals(expected.get("a")!! as Long, actual.get("a")!! as Long)
         assertEquals(expected.get("b")!! as Long, actual.get("b")!! as Long)

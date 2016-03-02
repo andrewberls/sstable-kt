@@ -17,7 +17,7 @@ import com.andrewberls.sstable.Utils
  * KVs...
  *     k length: int (4)
  *     k bytes (x)
- *     v length: long (8)
+ *     v length: int (4)
  *     v bytes (x)
  * Index
  *     k length: int (4)
@@ -42,7 +42,7 @@ class DiskTable(val raf: RandomAccessFile) {
                 raf.writeBytes(k)
 
                 index.add(Pair(k, raf.getFilePointer()))
-                raf.writeLong(v.size.toLong())
+                raf.writeInt(v.size)
                 raf.write(v)
             }
 
@@ -86,8 +86,8 @@ class DiskTable(val raf: RandomAccessFile) {
         val offset = index.get(k)
         if (offset != null) {
             raf.seek(offset)
-            val len = raf.readLong()
-            val v = ByteArray(Math.toIntExact(len)) // TODO: fix format
+            val len = raf.readInt()
+            val v = ByteArray(len)
             raf.read(v)
             return v
         } else {
