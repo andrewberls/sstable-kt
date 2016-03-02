@@ -1,41 +1,19 @@
 package com.andrewberls.sstable
 
 import java.util.ArrayList
-import java.util.concurrent.TimeUnit
-import kotlin.concurrent.thread
 import com.andrewberls.sstable.DiskTable
 import com.andrewberls.sstable.MemTable
 
-class SSTable(
-    private val duration: Long = 10000,
-    private val unit: TimeUnit = TimeUnit.MILLISECONDS)
-{
+class SSTable(private val memCapacity: Long = 10000) {
     // Global table lock used to guard memtables/disktables
     // during flush/compaction processes
     private val LOCK = Object()
 
-    private var memtable = MemTable()
+    private var memtable = MemTable(memCapacity)
 
     private val disktables = ArrayList<DiskTable>()
 
-    private val memtableFlusherThread = thread {
-        while(true) {
-            Thread.sleep(unit.toMillis(duration))
-            flushMemTable()
-        }
-    }
-
-    private fun flushMemTable(): Unit {
-        // TODO: could be much smarter about critical section here;
-        // snapshot, build offline and preserve any writes made in meantime?
-        synchronized(LOCK) {
-            val flushedTable = DiskTable.build(memtable.entries())
-            disktables.add(flushedTable)
-            memtable = MemTable()
-        }
-    }
-
-    // TODO: disktables merge thread
+    // TODO: disktable compaction. count flushes?
 
     fun get(k: String): ByteArray? {
         synchronized(LOCK) {
@@ -55,7 +33,18 @@ class SSTable(
         }
     }
 
+    private fun flushMemTable(): Unit {
+        synchronized(LOCK) {
+            val flushedTable = DiskTable.build(memtable.entries())
+            disktables.add(flushedTable)
+            memtable = MemTable(memCapacity)
+        }
+    }
+
     fun put(k: String, v: ByteArray): Unit {
-        synchronized(LOCK) { memtable.put(k, v) }
+        synchronized(LOCK) {
+            memtable.put(k, v)
+            if (memtable.atCapacity()) { flushMemTable() }
+        }
     }
 }

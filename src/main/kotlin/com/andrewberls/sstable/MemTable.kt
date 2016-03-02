@@ -3,8 +3,11 @@ package com.andrewberls.sstable
 import java.util.concurrent.ConcurrentSkipListMap
 import kotlin.collections.List
 
-class MemTable {
-    private val table = ConcurrentSkipListMap<String, ByteArray>()
+class MemTable(private val capacity: Long) {
+    private var table = ConcurrentSkipListMap<String, ByteArray>()
+
+    fun atCapacity(): Boolean =
+        table.keys.size >= capacity
 
     fun entries(): List<Pair<String, ByteArray>> =
         table.entries.map { e -> Pair(e.key, e.value) }
