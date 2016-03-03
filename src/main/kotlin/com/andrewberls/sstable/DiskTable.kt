@@ -1,14 +1,16 @@
 package com.andrewberls.sstable
 
-import java.io.RandomAccessFile
 import java.io.EOFException
+import java.io.RandomAccessFile
 import java.util.ArrayList
 import java.util.HashMap
 import kotlin.collections.List
+import com.andrewberls.sstable.MarkerType
+import com.andrewberls.sstable.Record
 import com.andrewberls.sstable.Utils
 
 /**
- * A key-value set stored in sorted order on disk, along with an index
+ * A set of key-value pairs stored in sorted order on disk, along with an index
  * of file pointer offsets for each key. Materializes the index into
  * memory when constructed.
  *
@@ -16,19 +18,21 @@ import com.andrewberls.sstable.Utils
  *     index offset: long (8)
  * KVs...
  *     k length: int (4)
- *     k bytes (x)
- *     v length: int (4)
- *     v bytes (x)
+ *     k: bytes (x)
+ *     type marker (value or deletion tombstone): byte (1)
+ *     If not tombstone:
+ *         v length: int (4)
+ *         v: bytes (x)
  * Index
  *     k length: int (4)
- *     k bytes (x)
- *     v offset: long (8)
+ *     k: bytes (x)
+ *     type marker offset: long (8)
  */
 class DiskTable(val raf: RandomAccessFile) {
     companion object {
         // Invariant: kvs presorted in ascending order
         // TODO: check/enforce this
-        fun build(kvs: List<Pair<String, ByteArray>>): DiskTable {
+        fun build(kvs: List<Pair<String, Record>>): DiskTable {
             val raf = RandomAccessFile(Utils.tempfile(), "rws")
             val index = ArrayList<Pair<String, Long>>()
 
@@ -37,13 +41,22 @@ class DiskTable(val raf: RandomAccessFile) {
 
             // Write KVs
             kvs.forEach { p ->
-                val (k, v) = p
-                raf.writeInt(k.length)
-                raf.writeBytes(k)
-
-                index.add(Pair(k, raf.getFilePointer()))
-                raf.writeInt(v.size)
-                raf.write(v)
+                val (k, r) = p
+                when (r.type) {
+                    MarkerType.DELETION -> {
+                        Utils.writeLengthPrefixedString(raf, k)
+                        index.add(Pair(k, raf.getFilePointer()))
+                        raf.writeByte(r.type.repr)
+                    }
+                    MarkerType.VALUE -> {
+                        Utils.writeLengthPrefixedString(raf, k)
+                        index.add(Pair(k, raf.getFilePointer()))
+                        raf.writeByte(r.type.repr)
+                        val v: ByteArray = r.value!!
+                        raf.writeInt(v.size)
+                        raf.write(v)
+                    }
+                }
             }
 
             // Jump back and write index offset header
@@ -67,6 +80,7 @@ class DiskTable(val raf: RandomAccessFile) {
 
     private val index = buildIndex()
 
+    // Read the index from disk and materialize it into memory
     internal fun buildIndex(): Map<String, Long> {
         raf.seek(0)
         val idx = HashMap<String, Long>()
@@ -86,10 +100,16 @@ class DiskTable(val raf: RandomAccessFile) {
         val offset = index.get(k)
         if (offset != null) {
             raf.seek(offset)
-            val len = raf.readInt()
-            val v = ByteArray(len)
-            raf.read(v)
-            return v
+            val type = raf.readByte().toInt()
+            when (MarkerType.fromRepr(type)) {
+                MarkerType.DELETION -> return null
+                MarkerType.VALUE -> {
+                    val len = raf.readInt()
+                    val v = ByteArray(len)
+                    raf.read(v)
+                    return v
+                }
+            }
         } else {
             return null
         }

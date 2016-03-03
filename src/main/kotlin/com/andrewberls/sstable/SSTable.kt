@@ -2,7 +2,9 @@ package com.andrewberls.sstable
 
 import java.util.ArrayList
 import com.andrewberls.sstable.DiskTable
+import com.andrewberls.sstable.MarkerType
 import com.andrewberls.sstable.MemTable
+import com.andrewberls.sstable.Record
 
 class SSTable(private val memCapacity: Long = 10000) {
     // Global table lock used to guard memtables/disktables
@@ -43,8 +45,14 @@ class SSTable(private val memCapacity: Long = 10000) {
 
     fun put(k: String, v: ByteArray): Unit {
         synchronized(LOCK) {
-            memtable.put(k, v)
+            memtable.putRecord(k, Record(MarkerType.VALUE, v))
             if (memtable.atCapacity()) { flushMemTable() }
+        }
+    }
+
+    fun remove(k: String): Unit {
+        synchronized(LOCK) {
+            memtable.putRecord(k, Record(MarkerType.DELETION, null))
         }
     }
 }

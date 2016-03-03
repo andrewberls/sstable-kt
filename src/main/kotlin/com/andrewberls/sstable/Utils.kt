@@ -18,4 +18,13 @@ object Utils {
         val len = raf.readInt()
         return (0..len-1).map { raf.readByte().toChar() }.joinToString("")
     }
+
+    /**
+     * Write a length-prefixed (4-byte int) String to a RandomAccessFile
+     * Mutates file pointer of `raf`!
+     */
+    fun writeLengthPrefixedString(raf: RandomAccessFile, str: String): Unit {
+        raf.writeInt(str.length)
+        raf.writeBytes(str)
+    }
 }
