@@ -5,7 +5,6 @@ import java.nio.ByteBuffer
 import java.util.ArrayList
 import kotlin.test.*
 import org.junit.Test
-import com.andrewberls.sstable.MarkerType
 import com.andrewberls.sstable.Record
 import com.andrewberls.sstable.Utils
 
@@ -22,7 +21,7 @@ private fun byteArrayToInt(bs: ByteArray): Int {
 }
 
 private fun valueRecord(bs: ByteArray): Record =
-    Record(MarkerType.VALUE, bs)
+    Record.Value(bs)
 
 class DiskTableTest {
     @Test
@@ -39,17 +38,17 @@ class DiskTableTest {
 
         // KVs
         assertEquals("a", Utils.readLengthPrefixedString(raf))
-        assertEquals(MarkerType.VALUE, MarkerType.fromRepr(raf.readByte().toInt()))
+        assertEquals(1, raf.readByte().toInt())
         assertEquals(4, raf.readInt()) // 1 length
         assertEquals(1, raf.readInt()) // 1 (byte hack)
 
         assertEquals("b", Utils.readLengthPrefixedString(raf))
-        assertEquals(MarkerType.VALUE, MarkerType.fromRepr(raf.readByte().toInt()))
+        assertEquals(1, raf.readByte().toInt())
         assertEquals(4, raf.readInt()) // 2 length
         assertEquals(2, raf.readInt()) // 2 (byte hack)
 
         assertEquals("c", Utils.readLengthPrefixedString(raf))
-        assertEquals(MarkerType.VALUE, MarkerType.fromRepr(raf.readByte().toInt()))
+        assertEquals(1, raf.readByte().toInt())
         assertEquals(4, raf.readInt()) // 3 length
         assertEquals(3, raf.readInt()) // 3 (byte hack)
 

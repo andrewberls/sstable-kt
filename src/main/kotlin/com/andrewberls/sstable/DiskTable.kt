@@ -5,7 +5,6 @@ import java.io.RandomAccessFile
 import java.util.ArrayList
 import java.util.HashMap
 import kotlin.collections.List
-import com.andrewberls.sstable.MarkerType
 import com.andrewberls.sstable.Record
 import com.andrewberls.sstable.Utils
 
@@ -14,19 +13,23 @@ import com.andrewberls.sstable.Utils
  * of file pointer offsets for each key. Materializes the index into
  * memory when constructed.
  *
- * Header:
- *     index offset: long (8)
- * KVs...
- *     k length: int (4)
- *     k: bytes (x)
- *     type marker (value or deletion tombstone): byte (1)
- *     If not tombstone:
- *         v length: int (4)
- *         v: bytes (x)
- * Index
- *     k length: int (4)
- *     k: bytes (x)
- *     type marker offset: long (8)
+ * Type tags: 0 = tombstone, 1 = value
+ *
+ * Disk layout:
+ *
+ *   Header:
+ *       index offset: long (8)
+ *   KVs...
+ *       k length: int (4)
+ *       k: bytes (x)
+ *       type tag: byte (1)
+ *       If not tombstone:
+ *           v length: int (4)
+ *           v: bytes (x)
+ *   Index
+ *       k length: int (4)
+ *       k: bytes (x)
+ *       type tag offset: long (8)
  */
 class DiskTable(val raf: RandomAccessFile) {
     companion object {
@@ -42,17 +45,17 @@ class DiskTable(val raf: RandomAccessFile) {
             // Write KVs
             kvs.forEach { p ->
                 val (k, r) = p
-                when (r.type) {
-                    MarkerType.DELETION -> {
+                when (r) {
+                    is Record.Tombstone -> {
                         Utils.writeLengthPrefixedString(raf, k)
                         index.add(Pair(k, raf.getFilePointer()))
-                        raf.writeByte(r.type.repr)
+                        raf.writeByte(0)
                     }
-                    MarkerType.VALUE -> {
+                    is Record.Value -> {
                         Utils.writeLengthPrefixedString(raf, k)
                         index.add(Pair(k, raf.getFilePointer()))
-                        raf.writeByte(r.type.repr)
-                        val v: ByteArray = r.value!!
+                        raf.writeByte(1)
+                        val v: ByteArray = r.value
                         raf.writeInt(v.size)
                         raf.write(v)
                     }
@@ -101,14 +104,15 @@ class DiskTable(val raf: RandomAccessFile) {
         if (offset != null) {
             raf.seek(offset)
             val type = raf.readByte().toInt()
-            when (MarkerType.fromRepr(type)) {
-                MarkerType.DELETION -> return null
-                MarkerType.VALUE -> {
+            when (type) {
+                0 -> return null
+                1 -> {
                     val len = raf.readInt()
                     val v = ByteArray(len)
                     raf.read(v)
                     return v
                 }
+                else -> throw Exception("Unexpected type tag: $type")
             }
         } else {
             return null

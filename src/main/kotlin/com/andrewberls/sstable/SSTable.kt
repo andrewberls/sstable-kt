@@ -2,7 +2,6 @@ package com.andrewberls.sstable
 
 import java.util.ArrayList
 import com.andrewberls.sstable.DiskTable
-import com.andrewberls.sstable.MarkerType
 import com.andrewberls.sstable.MemTable
 import com.andrewberls.sstable.Record
 
@@ -45,14 +44,14 @@ class SSTable(private val memCapacity: Long = 10000) {
 
     fun put(k: String, v: ByteArray): Unit {
         synchronized(LOCK) {
-            memtable.putRecord(k, Record(MarkerType.VALUE, v))
+            memtable.putRecord(k, Record.Value(v))
             if (memtable.atCapacity()) { flushMemTable() }
         }
     }
 
     fun remove(k: String): Unit {
         synchronized(LOCK) {
-            memtable.putRecord(k, Record(MarkerType.DELETION, null))
+            memtable.putRecord(k, Record.Tombstone)
         }
     }
 }

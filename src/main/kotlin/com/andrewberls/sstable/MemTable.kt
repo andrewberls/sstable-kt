@@ -2,7 +2,6 @@ package com.andrewberls.sstable
 
 import java.util.concurrent.ConcurrentSkipListMap
 import kotlin.collections.List
-import com.andrewberls.sstable.MarkerType
 import com.andrewberls.sstable.Record
 
 class MemTable(private val capacity: Long) {
@@ -14,8 +13,17 @@ class MemTable(private val capacity: Long) {
     fun entries(): List<Pair<String, Record>> =
         table.entries.map { e -> Pair(e.key, e.value) }
 
-    fun get(k: String): ByteArray? =
-        table.get(k)?.value
+    fun get(k: String): ByteArray? {
+        val r: Record? = table.get(k)
+        if (r == null) {
+            return null
+        } else {
+            when (r) {
+                is Record.Tombstone -> return null
+                is Record.Value -> return r.value
+            }
+        }
+    }
 
     fun putRecord(k: String, r: Record): Unit {
         table.put(k, r)
