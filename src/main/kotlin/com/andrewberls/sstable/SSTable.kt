@@ -1,14 +1,14 @@
 package com.andrewberls.sstable
 
 import java.util.ArrayList
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.* // withLock
 import com.andrewberls.sstable.DiskTable
 import com.andrewberls.sstable.MemTable
 import com.andrewberls.sstable.Record
 
 class SSTable(private val memCapacity: Long = 10000) {
-    // Global table lock used to guard memtables/disktables
-    // during flush/compaction processes
-    private val LOCK = Object()
+    private val RWLOCK = ReentrantReadWriteLock()
 
     private var memtable = MemTable(memCapacity)
 
@@ -17,7 +17,7 @@ class SSTable(private val memCapacity: Long = 10000) {
     // TODO: disktable compaction. count flushes?
 
     fun get(k: String): ByteArray? {
-        synchronized(LOCK) {
+        RWLOCK.readLock().withLock {
             val mv: ByteArray? = memtable.get(k)
             if (mv != null) {
                 return mv
@@ -35,7 +35,7 @@ class SSTable(private val memCapacity: Long = 10000) {
     }
 
     private fun flushMemTable(): Unit {
-        synchronized(LOCK) {
+        RWLOCK.writeLock().withLock {
             val flushedTable = DiskTable.build(memtable.entries())
             disktables.add(flushedTable)
             memtable = MemTable(memCapacity)
@@ -43,14 +43,14 @@ class SSTable(private val memCapacity: Long = 10000) {
     }
 
     fun put(k: String, v: ByteArray): Unit {
-        synchronized(LOCK) {
+        RWLOCK.writeLock().withLock {
             memtable.putRecord(k, Record.Value(v))
             if (memtable.atCapacity()) { flushMemTable() }
         }
     }
 
     fun remove(k: String): Unit {
-        synchronized(LOCK) {
+        RWLOCK.writeLock().withLock {
             memtable.putRecord(k, Record.Tombstone)
         }
     }
