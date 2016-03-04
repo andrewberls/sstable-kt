@@ -36,7 +36,7 @@ class DiskTable(val raf: RandomAccessFile) {
         // Invariant: kvs presorted in ascending order
         // TODO: check/enforce this
         fun build(kvs: List<Pair<String, Record>>): DiskTable {
-            val raf = RandomAccessFile(Utils.tempfile(), "rws")
+            val raf = RandomAccessFile(Utils.tempfile(), "rw")
             val index = ArrayList<Pair<String, Long>>()
 
             // Make room for headers (index offset: Long)
