@@ -2,17 +2,42 @@ package com.andrewberls.sstable
 
 import java.util.ArrayList
 import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.* // withLock
+import kotlin.concurrent.*
 import com.andrewberls.sstable.DiskTable
 import com.andrewberls.sstable.MemTable
 import com.andrewberls.sstable.Record
 
-class SSTable(private val memCapacity: Long = 10000) {
+class SSTable(
+        private val memCapacity: Long = 10000,
+        private val flushPeriodMillis: Long = 1000) {
     private val RWLOCK = ReentrantReadWriteLock()
 
     private var memtable = MemTable(memCapacity)
 
     private val disktables = ArrayList<DiskTable>()
+
+    private val memtableFlusherThread = thread {
+        try {
+            while(true) {
+                val atCapacity = RWLOCK.readLock().withLock {
+                    memtable.atCapacity()
+                }
+                if (atCapacity) {
+                    RWLOCK.writeLock().withLock { flushMemTable() }
+                }
+                Thread.sleep(flushPeriodMillis)
+            }
+        } catch (e: InterruptedException) {}
+    }
+
+    private fun flushMemTable(): Unit {
+        // TODO: poor throughput here
+        RWLOCK.writeLock().withLock {
+            val flushedTable = DiskTable.build(memtable.entries())
+            disktables.add(flushedTable)
+            this.memtable = MemTable(memCapacity)
+        }
+   }
 
     // TODO: disktable compaction. count flushes?
 
@@ -24,9 +49,7 @@ class SSTable(private val memCapacity: Long = 10000) {
             } else {
                 disktables.forEach { table ->
                     val dv = table.get(k)
-                    if (dv != null) {
-                        return dv
-                    }
+                    if (dv != null) { return dv }
                 }
             }
 
@@ -34,18 +57,9 @@ class SSTable(private val memCapacity: Long = 10000) {
         }
     }
 
-    private fun flushMemTable(): Unit {
-        RWLOCK.writeLock().withLock {
-            val flushedTable = DiskTable.build(memtable.entries())
-            disktables.add(flushedTable)
-            memtable = MemTable(memCapacity)
-        }
-    }
-
     fun put(k: String, v: ByteArray): Unit {
         RWLOCK.writeLock().withLock {
             memtable.putRecord(k, Record.Value(v))
-            if (memtable.atCapacity()) { flushMemTable() }
         }
     }
 
@@ -53,5 +67,9 @@ class SSTable(private val memCapacity: Long = 10000) {
         RWLOCK.writeLock().withLock {
             memtable.putRecord(k, Record.Tombstone)
         }
+    }
+
+    fun close(): Unit {
+        memtableFlusherThread.interrupt()
     }
 }
