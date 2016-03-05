@@ -1,34 +1,19 @@
 package com.andrewberls.sstable
 
 import java.io.RandomAccessFile
-import java.nio.ByteBuffer
-import java.util.ArrayList
 import kotlin.test.*
 import org.junit.Test
 import com.andrewberls.sstable.Record
 import com.andrewberls.sstable.Utils
-
-private fun intToByteArray(x: Int): ByteArray {
-    val buf = ByteBuffer.allocate(4)
-    buf.putInt(x)
-    buf.rewind()
-    return buf.array()
-}
-
-private fun byteArrayToInt(bs: ByteArray): Int {
-    val buf = ByteBuffer.wrap(bs)
-    return buf.getInt()
-}
-
-private fun valueRecord(bs: ByteArray): Record =
-    Record.Value(bs)
+import com.andrewberls.sstable.TestUtils.intToByteArray
+import com.andrewberls.sstable.TestUtils.byteArrayToInt
 
 class DiskTableTest {
     @Test
     fun testCompanionBuild(): Unit {
-        val kvs = listOf(Pair("a", valueRecord(intToByteArray(1))),
-                         Pair("b", valueRecord(intToByteArray(2))),
-                         Pair("c", valueRecord(intToByteArray(3))))
+        val kvs = listOf(Pair("a", Record.Value(intToByteArray(1))),
+                         Pair("b", Record.Value(intToByteArray(2))),
+                         Pair("c", Record.Value(intToByteArray(3))))
         val dt = DiskTable.build(kvs)
         val raf = dt.raf
         raf.seek(0)
@@ -70,9 +55,9 @@ class DiskTableTest {
 
     @Test
     fun testBuildIndex(): Unit {
-        val kvs = listOf(Pair("a", valueRecord(intToByteArray(1))),
-                         Pair("b", valueRecord(intToByteArray(2))),
-                         Pair("c", valueRecord(intToByteArray(3))))
+        val kvs = listOf(Pair("a", Record.Value(intToByteArray(1))),
+                         Pair("b", Record.Value(intToByteArray(2))),
+                         Pair("c", Record.Value(intToByteArray(3))))
         val dt = DiskTable.build(kvs)
 
         val expected = hashMapOf(Pair("a", 13.toLong()),
@@ -86,9 +71,9 @@ class DiskTableTest {
 
     @Test
     fun testGet(): Unit {
-        val kvs = listOf(Pair("a", valueRecord(intToByteArray(1))),
-                         Pair("b", valueRecord(intToByteArray(2))),
-                         Pair("c", valueRecord(intToByteArray(3))))
+        val kvs = listOf(Pair("a", Record.Value(intToByteArray(1))),
+                         Pair("b", Record.Value(intToByteArray(2))),
+                         Pair("c", Record.Value(intToByteArray(3))))
         val dt = DiskTable.build(kvs)
 
         assertEquals(1, byteArrayToInt(dt.get("a")!!))

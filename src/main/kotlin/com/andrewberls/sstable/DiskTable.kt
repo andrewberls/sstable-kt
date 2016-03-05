@@ -89,7 +89,7 @@ class DiskTable(val raf: RandomAccessFile) {
         val idx = HashMap<String, Long>()
         val indexStart = raf.readLong()
         raf.seek(indexStart)
-        while(true) {
+        while (true) {
             try {
                 val k = Utils.readLengthPrefixedString(raf)
                 val offset = raf.readLong()
