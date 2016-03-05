@@ -51,34 +51,37 @@ class SSTable(
         }
    }
 
-    // TODO: disktable compaction. count flushes?
+   internal fun getFromDisk(k: String): ByteArray? {
+       disktables.forEach { table ->
+           val v = table.get(k)
+           if (v != null) { return v }
+       }
+       return null
+   }
 
-    internal fun getFromDisk(k: String): ByteArray? {
-        disktables.forEach { table ->
-            val v = table.get(k)
-            if (v != null) { return v }
-        }
-        return null
-    }
+   fun containsKey(k: String): Boolean =
+       get(k) != null
 
-    fun get(k: String): ByteArray? =
-        RWLOCK.readLock().withLock {
-            memtable.get(k) ?: stagingMemtable?.get(k) ?: getFromDisk(k)
-        }
+   fun get(k: String): ByteArray? =
+       RWLOCK.readLock().withLock {
+           memtable.get(k) ?: stagingMemtable?.get(k) ?: getFromDisk(k)
+       }
 
-    fun put(k: String, v: ByteArray): Unit {
-        RWLOCK.writeLock().withLock {
-            memtable.putRecord(k, Record.Value(v))
-        }
-    }
+   fun put(k: String, v: ByteArray): Unit {
+       RWLOCK.writeLock().withLock {
+           memtable.putRecord(k, Record.Value(v))
+       }
+   }
 
-    fun remove(k: String): Unit {
-        RWLOCK.writeLock().withLock {
-            memtable.putRecord(k, Record.Tombstone)
-        }
-    }
+   fun remove(k: String): Unit {
+       RWLOCK.writeLock().withLock {
+           if (containsKey(k)) {
+               memtable.putRecord(k, Record.Tombstone)
+           }
+       }
+   }
 
-    override fun close(): Unit {
-        memtableFlusherThread.interrupt()
-    }
+   override fun close(): Unit {
+       memtableFlusherThread.interrupt()
+   }
 }
