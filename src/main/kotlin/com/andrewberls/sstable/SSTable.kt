@@ -12,7 +12,13 @@ class SSTable(
         private val flushPeriodMillis: Long = 1000) {
     private val RWLOCK = ReentrantReadWriteLock()
 
+    // The main MemTable that receives all writes and is first
+    // in line for reads
     private var memtable = MemTable(memCapacity)
+
+    // A temporary/transient MemTable that holds the old memtable while flushing/building
+    // a new DiskTable and swapping it in
+    private var stagingMemtable: MemTable? = null
 
     private val disktables = ArrayList<DiskTable>()
 
@@ -31,11 +37,15 @@ class SSTable(
     }
 
     private fun flushMemTable(): Unit {
-        // TODO: poor throughput here
         RWLOCK.writeLock().withLock {
-            val flushedTable = DiskTable.build(memtable.entries())
+            stagingMemtable = memtable.copy()
+            memtable = MemTable(memCapacity)
+        }
+        // Build the disk table outside of any locks
+        val flushedTable = DiskTable.build(stagingMemtable!!.entries())
+        RWLOCK.writeLock().withLock {
             disktables.add(flushedTable)
-            this.memtable = MemTable(memCapacity)
+            stagingMemtable = null
         }
    }
 
@@ -43,7 +53,7 @@ class SSTable(
 
     fun get(k: String): ByteArray? {
         RWLOCK.readLock().withLock {
-            val mv: ByteArray? = memtable.get(k)
+            val mv: ByteArray? = memtable.get(k) ?: stagingMemtable?.get(k)
             if (mv != null) {
                 return mv
             } else {

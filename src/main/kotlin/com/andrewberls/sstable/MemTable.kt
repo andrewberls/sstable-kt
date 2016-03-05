@@ -4,9 +4,10 @@ import java.util.concurrent.ConcurrentSkipListMap
 import kotlin.collections.List
 import com.andrewberls.sstable.Record
 
-class MemTable(private val capacity: Long) {
-    private var table = ConcurrentSkipListMap<String, Record>()
-
+data class MemTable(
+        private val capacity: Long,
+        private val table: ConcurrentSkipListMap<String, Record> =
+            ConcurrentSkipListMap<String, Record>()) {
     fun atCapacity(): Boolean =
         table.keys.size >= capacity
 
