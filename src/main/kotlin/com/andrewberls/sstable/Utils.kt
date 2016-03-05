@@ -11,6 +11,18 @@ object Utils {
     }
 
     /**
+     * Repeatedly call `action` forever, quietly suppressing
+     * thread InterruptedExceptions
+     */
+    fun <T> foreverInterruptible(action: () -> T): Unit {
+        try {
+            while (true) {
+                action()
+            }
+        } catch (e: InterruptedException) {}
+    }
+
+    /**
      * Read a length-prefixed (4-byte int) String from a RandomAccessFile
      * Mutates file pointer of `raf`!
      */
